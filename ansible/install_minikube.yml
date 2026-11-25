@@ -1,0 +1,20 @@
+- name: Install and start Minikube
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Download minikube
+      become: true
+      get_url:
+        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        dest: /usr/local/bin/minikube
+        mode: '0755'
+
+    - name: Check if minikube is running
+      command: minikube status
+      register: mk_status
+      failed_when: false
+      changed_when: false
+
+    - name: Start minikube with docker driver
+      command: minikube start --driver=docker
+      when: mk_status.rc != 0

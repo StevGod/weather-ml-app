@@ -1,0 +1,22 @@
+- name: Deploy weather app to Kubernetes
+  hosts: localhost
+  connection: local
+  vars:
+    k8s_dir: "{{ ansible_env.HOME }}/weather-ml-app/k8s"
+  tasks:
+    - name: Deploy image from DockerHub (Deployment)
+      command: kubectl apply -f {{ k8s_dir }}/deployment.yaml
+
+    - name: Create Service
+      command: kubectl apply -f {{ k8s_dir }}/service.yaml
+
+    - name: Scale deployment for rolling updates
+      command: kubectl scale deployment weather-ml-app --replicas=3
+
+    - name: Wait for rollout to finish
+      command: kubectl rollout status deployment/weather-ml-app --timeout=180s
+
+    - name: Show pods and service
+      command: kubectl get pods,svc -o wide
+      register: out
+    - debug: var=out.stdout_lines

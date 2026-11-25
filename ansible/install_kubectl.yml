@@ -1,0 +1,23 @@
+- name: Install kubectl
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Get latest stable kubectl version
+      uri:
+        url: https://dl.k8s.io/release/stable.txt
+        return_content: true
+      register: kube_version
+
+    - name: Download kubectl binary
+      get_url:
+        url: "https://dl.k8s.io/release/{{ kube_version.content | trim }}/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: Check kubectl works
+      command: kubectl version --client
+      register: out
+      changed_when: false
+
+    - debug: var=out.stdout
