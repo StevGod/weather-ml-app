@@ -20,6 +20,7 @@ spec:
       containers:
         - name: weather-ml-app
           image: euansm/weather-ml-app:v1
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
           readinessProbe:
