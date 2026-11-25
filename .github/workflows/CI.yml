@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Flask and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask -r requirements.txt
+
+      - name: Run smoke test
+        run: python -m unittest tests/smoke_test.py -v
+
+      - name: Run unit test
+        run: python -m unittest tests/unit_test.py -v
+
+      - name: Run integration test
+        run: python -m unittest tests/integration_test.py -v
+
+      - name: Read image name and tag from deployment.yaml
+        id: image
+        run: |
+          IMAGE=$(grep -oP 'image:\s*\K\S+' k8s/deployment.yaml)
+          echo "Image to build: $IMAGE"
+          echo "name=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: docker build -t ${{ steps.image.outputs.name }} .
+
+      - name: Build test - launch container
+        run: |
+          docker run -d --name test-container -p 5000:5000 ${{ steps.image.outputs.name }}
+          sleep 10
+          docker ps --filter name=test-container
+          docker exec test-container python -c "import app; print('Container is running, app loaded OK')"
+          curl -f http://localhost:5000/ > /dev/null && echo "App responds on port 5000"
+
+      - name: Remove test container
+        if: always()
+        run: docker rm -f test-container || true
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push image to DockerHub
+        run: docker push ${{ steps.image.outputs.name }}
